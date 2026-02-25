@@ -1,39 +1,34 @@
 import time
 import jax
 import jax.numpy as jnp
-from predictive_coding import PredictiveCodingNetwork
+from predictive_coding import PredictiveCodingNetwork, NetworkVisualizer
 import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":
     # Example usage of the PredictiveCodingNetwork
-    layer_sizes = [2, 3, 4]  # Example layer sizes
+    layer_sizes = [3, 4, 6, 4, 4]  # Example layer sizes
+    vis = NetworkVisualizer()
     network = PredictiveCodingNetwork(layer_sizes)
+    vis.attach(network)
 
     energies = []
 
     target_output = jax.random.normal(jax.random.PRNGKey(1), (layer_sizes[-1],))
     print("Target: ", target_output)
     strt_time = time.time()
-    for i in range(100000):  # Run multiple update iterations
+    for i in range(500):  # Run multiple update iterations
         print(f"Iteration {i + 1}")
         network.layers[-1].x = target_output # Set the input to the first layer
-        # Forward pass
-        output = network.forward()
+        vis.step()  # Update the visualization
 
         # Update the network based on the error
-        network.update_activations()
-        if i % 2 == 0:  # Update weights every 100 iterations
-            network.update_weights()
+        network.update(activations=True, weights=(i % 100 == 0))  # Update weights every 100 iterations
+
         energy = network.get_energy()
         energies.append(energy)
+        time.sleep(0.1)  # Sleep briefly to slow down the loop for visualization
     
+    vis.step()  # Final visualization update
+    vis.close()  # Close the visualization window after the loop
     print(f"Avg loop time: {(time.time() - strt_time) / 100000 / 1000:.6f} ms")
-    
-    # Plot energy over iterations
-    plt.plot(energies)
-    plt.xlabel("Iteration")
-    plt.ylabel("Energy")
-    plt.title("Energy over Iterations")
-    plt.show()
-    

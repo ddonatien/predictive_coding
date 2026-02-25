@@ -35,7 +35,7 @@ class NeuronLayer(BaseLayer):
         print("Updated error:", self.e.max(), self.e.min())
     
     def update_activation(self, error_next):
-        self.x -= .045 * (2 * self.e - 2 * self.W @ error_next)
+        self.x -= .001 * (self.e - self.W @ error_next)
         print("Updated activation:", self.x.max(), self.x.min())
     
     def get_energy(self):
@@ -43,6 +43,7 @@ class NeuronLayer(BaseLayer):
 
 class PredictiveCodingNetwork:
     def __init__(self, layer_sizes, activation=None, seed=0):
+        self.timestep = 0
         self.layers = []
         layer_sizes = layer_sizes + [0]  # Add a dummy layer size for the output layer
         for i in range(len(layer_sizes) - 1):
@@ -51,7 +52,14 @@ class PredictiveCodingNetwork:
     def forward(self):
         return self.layers[-1].x
 
-    def update_activations(self):
+    def update(self, activations: bool =True, weights: bool =True):
+        if activations:
+            self._update_activations()
+        if weights:
+            self._update_weights()
+        self.timestep += 1
+    
+    def _update_activations(self):
         for i in reversed(range(len(self.layers))):
             print(i)
             layer = self.layers[i]
@@ -63,7 +71,7 @@ class PredictiveCodingNetwork:
                 error_next = self.layers[i+1].e
                 layer.update_activation(error_next)
     
-    def update_weights(self):
+    def _update_weights(self):
         for i in reversed(range(len(self.layers))):
             layer = self.layers[i]
             if i < len(self.layers) - 1:
