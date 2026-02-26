@@ -14,28 +14,37 @@ class NeuronLayer(BaseLayer):
         self.n_neurons = n_neurons
         self.n_neurons_next = n_neurons_next
         _, subkey = jax.random.split(self.key)
-        self.W = jax.random.normal(subkey, (self.n_neurons, self.n_neurons_next))
+        self.W = 0.1 * jax.random.normal(subkey, (self.n_neurons, self.n_neurons_next))
         _, subkey = jax.random.split(subkey)
-        self.x = jax.random.normal(subkey, (batch_size, self.n_neurons))
+        self.x = 0.1 * jax.random.normal(subkey, (batch_size, self.n_neurons))
         self.e = jnp.zeros((batch_size, self.n_neurons))  # Initialize error to zero
         self.activation = activation if activation is not None else jax.nn.identity
+        # Store activation derivative function; use jax.grad for automatic differentiation
+        self._activation_grad = jax.vmap(jax.grad(lambda xi: jnp.sum(self.activation(xi))))
 
     def forward(self):
         # Simple linear transformation using JAX numpy
-        x = self.x @ self.W
-        return self.activation(x)
+        return self.activation(self.x) @ self.W
     
-    def update_weights(self, error_next):
+    def update_weights(self, error_next, learning_rate=.15):
         # Update weights using gradient descent
-        print(self.x.shape, error_next.shape, self.W.shape)
-        self.W += (self.x[:, :, None] * error_next[:, None, :]).mean(axis=0)
+        self.W += learning_rate * (self.activation(self.x)[:, :, None] * error_next[:, None, :]).mean(axis=0)
 
     def update_error(self, signal_prev):
         # Update error based on the next layer's error
         self.e = self.x - signal_prev
     
-    def update_activation(self, error_next):
-        self.x -= .001 * (self.e - error_next @ self.W.T)
+    def _get_activation_derivative(self):
+        """Compute f'(x) for each neuron, where f is the activation function."""
+        # vmap over batch dimension, grad computes d/dx sum(f(x))
+        # For a single neuron, this gives f'(x)
+        return self._activation_grad(self.x)
+
+    def update_activation(self, error_next, learning_rate=0.15):
+        # Apply activation derivative only to the backpropagated error term
+        f_prime = self._get_activation_derivative()
+        backprop_error = (error_next @ self.W.T) * f_prime
+        self.x -= learning_rate * (self.e - backprop_error)
     
     def get_energy(self):
         return jax.lax.batch_matmul(self.e, self.e.T).sum()
@@ -60,7 +69,6 @@ class PredictiveCodingNetwork:
     
     def _update_activations(self):
         for i in reversed(range(len(self.layers))):
-            print(i)
             layer = self.layers[i]
             # layer.update_weights(error_next)
             if i > 0:
