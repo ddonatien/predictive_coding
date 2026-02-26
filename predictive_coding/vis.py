@@ -208,7 +208,7 @@ class NetworkVisualizer:
 
         # update neurons (use weight colormap for neurons)
         for li, layer in enumerate(self.network.layers):
-            activations = np.array(layer.x)
+            activations = np.array(layer.x[0])
             colors = self._map_neuron_colors(li, activations)
             for ni, patch in enumerate(self.neuron_patches[li]):
                 if ni >= len(colors):

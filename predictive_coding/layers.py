@@ -9,45 +9,44 @@ class BaseLayer:
         raise NotImplementedError("Each layer must implement the forward method.")
 
 class NeuronLayer(BaseLayer):
-    def __init__(self, n_neurons, n_neurons_next, activation=None, seed=0):
+    def __init__(self, n_neurons, n_neurons_next, batch_size=1, activation=None, seed=0):
         super().__init__(seed)
         self.n_neurons = n_neurons
         self.n_neurons_next = n_neurons_next
         _, subkey = jax.random.split(self.key)
         self.W = jax.random.normal(subkey, (self.n_neurons, self.n_neurons_next))
         _, subkey = jax.random.split(subkey)
-        self.x = jax.random.normal(subkey, (self.n_neurons))
-        self.e = jnp.zeros((self.n_neurons))  # Initialize error to zero
+        self.x = jax.random.normal(subkey, (batch_size, self.n_neurons))
+        self.e = jnp.zeros((batch_size, self.n_neurons))  # Initialize error to zero
         self.activation = activation if activation is not None else jax.nn.identity
 
     def forward(self):
         # Simple linear transformation using JAX numpy
-        x = self.W.T @ self.x
+        x = self.x @ self.W
         return self.activation(x)
     
     def update_weights(self, error_next):
         # Update weights using gradient descent
-        self.W += jnp.kron(self.x[:, None], error_next[None, :])
+        print(self.x.shape, error_next.shape, self.W.shape)
+        self.W += (self.x[:, :, None] * error_next[:, None, :]).mean(axis=0)
 
     def update_error(self, signal_prev):
         # Update error based on the next layer's error
         self.e = self.x - signal_prev
-        print("Updated error:", self.e.max(), self.e.min())
     
     def update_activation(self, error_next):
-        self.x -= .001 * (self.e - self.W @ error_next)
-        print("Updated activation:", self.x.max(), self.x.min())
+        self.x -= .001 * (self.e - error_next @ self.W.T)
     
     def get_energy(self):
-        return self.e @ self.e.T
+        return jax.lax.batch_matmul(self.e, self.e.T).sum()
 
 class PredictiveCodingNetwork:
-    def __init__(self, layer_sizes, activation=None, seed=0):
+    def __init__(self, layer_sizes, batch_size=1, activation=None, seed=0):
         self.timestep = 0
         self.layers = []
         layer_sizes = layer_sizes + [0]  # Add a dummy layer size for the output layer
         for i in range(len(layer_sizes) - 1):
-            self.layers.append(NeuronLayer(layer_sizes[i], layer_sizes[i + 1], activation, seed+i))
+            self.layers.append(NeuronLayer(layer_sizes[i], layer_sizes[i + 1], batch_size, activation, seed+i))
 
     def forward(self):
         return self.layers[-1].x

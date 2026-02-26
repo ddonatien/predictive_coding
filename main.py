@@ -8,14 +8,14 @@ import matplotlib.pyplot as plt
 if __name__ == "__main__":
     # Example usage of the PredictiveCodingNetwork
     layer_sizes = [3, 4, 6, 4, 4]  # Example layer sizes
+    batch_size = 128
     vis = NetworkVisualizer()
-    network = PredictiveCodingNetwork(layer_sizes)
+    network = PredictiveCodingNetwork(layer_sizes, batch_size=batch_size)
     vis.attach(network)
 
     energies = []
 
-    target_output = jax.random.normal(jax.random.PRNGKey(1), (layer_sizes[-1],))
-    print("Target: ", target_output)
+    target_output = jax.random.normal(jax.random.PRNGKey(1), (batch_size, layer_sizes[-1]))
     strt_time = time.time()
     for i in range(500):  # Run multiple update iterations
         print(f"Iteration {i + 1}")
